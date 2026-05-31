@@ -61,7 +61,7 @@ local function make_hidden_resource(resource)
     hidden.hidden                = true
     hidden.hidden_in_factoriopedia = true
     hidden.factoriopedia_alternative = resource.name
-    hidden.flags                 = { "not-on-map" }
+    hidden.flags                 = { "placeable-neutral", "not-on-map" }
     hidden.selectable_in_game    = false
     hidden.highlight             = false
     hidden.map_color             = { r = 0, g = 0, b = 0, a = 0 }
@@ -115,6 +115,12 @@ if anchor_base then
     anchor_base.name = C.PLACEMENT_ANCHOR
     anchor_base.localised_name = { "entity-name.LegendaryResourceMining-placement-anchor" }
     anchor_base.localised_description = { "entity-description.LegendaryResourceMining-placement-anchor" }
+    anchor_base.hidden = false
+    anchor_base.hidden_in_factoriopedia = true
+    anchor_base.factoriopedia_alternative = nil
+    anchor_base.flags = { "placeable-neutral", "not-on-map" }
+    anchor_base.selectable_in_game = false
+    anchor_base.highlight = false
     anchor_base.minable = {
         mining_time = 1000000,
         result = anchor_item,

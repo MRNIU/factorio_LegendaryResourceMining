@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.6
+Date: 2026-05-31
+  Changes:
+    - Kept hidden mining resources and placement anchors placeable-neutral, so Factorio's mining drill placement and resource search logic can recognize them while they remain invisible to players.
+    - Made the temporary placement anchor engine-visible but player-invisible instead of prototype-hidden.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.1.5
 Date: 2026-05-31
   Changes:
