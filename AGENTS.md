@@ -9,7 +9,8 @@
 ## 架构
 
 - `settings.lua`：启动设置，决定资源选择范围。
-- `data.lua`：data 阶段创建隐藏资源分类和隐藏资源副本，并给原版 `big-mining-drill` 增加资源筛选槽。
+- `data.lua`：data 阶段创建隐藏资源分类、隐藏资源副本和临时放置代理实体。
+- `data-final-fixes.lua`：data-final-fixes 阶段最后接管原版 `big-mining-drill` 物品放置结果，并给原版大矿机增加隐藏资源分类和资源筛选槽。
 - `control.lua`：control 阶段跟踪传奇大矿机，把玩家选择的原版资源筛选器映射到隐藏资源副本，并把临时放置代理替换回原版矿机。
 - `constants.lua`：跨阶段常量。
 

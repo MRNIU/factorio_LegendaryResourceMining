@@ -69,6 +69,7 @@ local function make_placement_proxy(drill)
         hidden_in_factoriopedia = true,
         localised_name = drill.localised_name or { "entity-name." .. C.BIG_MINING_DRILL },
         localised_description = { "entity-description.LegendaryResourceMining-placement-proxy" },
+        placeable_by = { item = C.BIG_MINING_DRILL, count = 1 },
         minable = { mining_time = 0.1, result = C.BIG_MINING_DRILL },
         max_health = 1,
         collision_box = table.deepcopy(drill.collision_box),
@@ -199,24 +200,4 @@ end
 local drill = data.raw["mining-drill"] and data.raw["mining-drill"][C.BIG_MINING_DRILL]
 if drill then
     data:extend({ make_placement_proxy(drill) })
-
-    local item = data.raw.item and data.raw.item[C.BIG_MINING_DRILL]
-    if item then
-        item.place_result = C.PLACEMENT_PROXY
-    end
-
-    drill.filter_count = math.max(drill.filter_count or 0, 1)
-    drill.resource_categories = drill.resource_categories or { "basic-solid" }
-
-    local has_hidden_category = false
-    for _, category in pairs(drill.resource_categories) do
-        if category == C.HIDDEN_RESOURCE_CATEGORY then
-            has_hidden_category = true
-            break
-        end
-    end
-
-    if not has_hidden_category then
-        drill.resource_categories[#drill.resource_categories + 1] = C.HIDDEN_RESOURCE_CATEGORY
-    end
 end

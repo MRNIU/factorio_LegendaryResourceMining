@@ -24,15 +24,6 @@ local function is_legendary_big_mining_drill(entity)
         and quality_name(entity) == C.LEGENDARY_QUALITY
 end
 
-local function cursor_is_legendary_big_mining_drill(player)
-    if not (player and player.valid) then return false end
-    local stack = player.cursor_stack
-    return stack
-        and stack.valid_for_read
-        and stack.name == C.BIG_MINING_DRILL
-        and quality_name(stack) == C.LEGENDARY_QUALITY
-end
-
 local function cursor_is_big_mining_drill(player)
     if not (player and player.valid) then return false end
     local stack = player.cursor_stack
@@ -86,6 +77,36 @@ local function clear_filter_name(entity)
         entity.set_filter(1, nil)
     end)
     return ok
+end
+
+local function consumed_big_mining_drill_quality(event)
+    local stack = event.stack
+    if stack and stack.valid_for_read and stack.name == C.BIG_MINING_DRILL then
+        return quality_name(stack)
+    end
+
+    local inventory = event.consumed_items
+    if not inventory then return nil end
+
+    local ok, contents = pcall(function()
+        return inventory.get_contents()
+    end)
+    if ok and contents then
+        for _, item in pairs(contents) do
+            if item.name == C.BIG_MINING_DRILL then
+                return item.quality
+            end
+        end
+    end
+
+    local found_ok, found_stack = pcall(function()
+        return inventory.find_item_stack(C.BIG_MINING_DRILL)
+    end)
+    if found_ok and found_stack and found_stack.valid_for_read then
+        return quality_name(found_stack)
+    end
+
+    return nil
 end
 
 local function setting_resource_scope()
@@ -408,7 +429,7 @@ local function replace_proxy(proxy, event)
     local pending = take_pending_proxy_build(event)
     local direction = (pending and pending.direction) or proxy.direction or defines.direction.north
     local force = proxy.force
-    local quality = (pending and pending.quality) or quality_name(proxy)
+    local quality = consumed_big_mining_drill_quality(event) or (pending and pending.quality) or quality_name(proxy)
     local legendary = quality == C.LEGENDARY_QUALITY
     local player = event.player_index and game.get_player(event.player_index)
 

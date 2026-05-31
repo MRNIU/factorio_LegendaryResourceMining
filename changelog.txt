@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.3
+Date: 2026-05-31
+  Changes:
+    - Moved the vanilla big mining drill item override to data-final-fixes so the placement proxy remains the final place result after other prototype update stages.
+    - Read the consumed big mining drill item quality from build events when replacing the placement proxy, fixing legendary-quality detection during empty-ground placement.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.1.2
 Date: 2026-05-31
   Changes:
