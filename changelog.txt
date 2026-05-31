@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.7
+Date: 2026-05-31
+  Changes:
+    - Reworked empty-ground placement to use a temporary non-mining proxy that is replaced by a vanilla big mining drill, matching the proven resource-proxy pattern used by other mining mods.
+    - Kept hidden mining resources in their original resource categories instead of a custom category, so vanilla big mining drills can recognize them through normal resource search rules.
+    - Refreshed mining drill connections after scripted resource creation, so newly created hidden resources are connected to existing drills.
+    - Removed the moving player anchor-field placement workaround.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.1.6
 Date: 2026-05-31
   Changes:

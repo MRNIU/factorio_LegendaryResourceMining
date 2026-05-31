@@ -4,7 +4,7 @@ Legendary Resource Mining extends the vanilla big mining drill instead of adding
 
 Legendary-quality big mining drills can be placed on empty ground and use the normal mining-drill resource filter to select a finite hidden resource. The hidden resource uses the original resource's mining result and mining time, so drill speed, productivity, quality, modules, fluids, and resource drain continue to follow the vanilla mining drill rules.
 
-While a player is holding a legendary big mining drill, the mod maintains temporary hidden placement anchors only inside that player's build range. Those anchors are removed when the cursor changes or after a drill is placed.
+Placement uses a temporary proxy entity, following the pattern used by other resource-proxy mining mods: the item first places a non-mining proxy, then the script replaces it with a vanilla `big-mining-drill`. Non-legendary big mining drills are only replaced when a visible supported resource is already in range.
 
 By default, accepted resources are restricted to resources enabled for the current planet. A startup setting can instead allow all supported item resources, including resources that normally belong to another planet. Pure fluid resources are ignored.
 

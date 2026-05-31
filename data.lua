@@ -1,5 +1,5 @@
 -- Copyright The MRNIU/factorio_LegendaryResourceMining Contributors
--- data 阶段：创建隐藏资源分类，并为所有可产出物品的资源生成隐藏副本。
+-- data 阶段：为所有可产出物品的资源生成同分类隐藏副本和临时放置锚点。
 
 local C = require("constants")
 
@@ -50,13 +50,50 @@ local function empty_resource_stages()
     }
 end
 
+local function big_drill_sprite(name, options)
+    options = options or {}
+    options.priority = "high"
+    options.scale = 0.5
+
+    return util.sprite_load(
+        "__space-age__/graphics/entity/big-mining-drill/North/big-mining-drill-" .. name,
+        options
+    )
+end
+
+local function make_placement_proxy(drill)
+    return {
+        type                  = "simple-entity-with-owner",
+        name                  = C.PLACEMENT_PROXY,
+        localised_name        = { "entity-name.big-mining-drill" },
+        localised_description = { "entity-description.LegendaryResourceMining-placement-proxy" },
+        icon                  = drill.icon,
+        icons                 = drill.icons,
+        icon_size             = drill.icon_size,
+        flags                 = { "placeable-neutral", "player-creation" },
+        hidden                = true,
+        hidden_in_factoriopedia = true,
+        minable               = { mining_time = 0.3, result = C.BIG_MINING_DRILL },
+        max_health            = drill.max_health,
+        collision_box         = table.deepcopy(drill.collision_box),
+        selection_box         = table.deepcopy(drill.selection_box),
+        drawing_box_vertical_extension = drill.drawing_box_vertical_extension,
+        picture               = {
+            layers = {
+                big_drill_sprite("N-still", { dice = 2 }),
+                big_drill_sprite("N-still-shadow", { draw_as_shadow = true, dice = 2 }),
+            },
+        },
+    }
+end
+
 local function make_hidden_resource(resource)
     local hidden = table.deepcopy(resource)
 
     hidden.name                  = C.HIDDEN_RESOURCE_PREFIX .. resource.name
     hidden.localised_name        = resource.localised_name or { "entity-name." .. resource.name }
     hidden.localised_description = { "entity-description.LegendaryResourceMining-hidden-resource", hidden.localised_name }
-    hidden.category              = C.HIDDEN_RESOURCE_CATEGORY
+    hidden.category              = resource.category or "basic-solid"
     hidden.autoplace             = nil
     hidden.hidden                = true
     hidden.hidden_in_factoriopedia = true
@@ -80,6 +117,7 @@ local function make_hidden_resource(resource)
     hidden.normal                = nil
     hidden.infinite_depletion_amount = nil
     hidden.resource_patch_search_radius = 0
+    hidden.surface_conditions    = nil
 
     return hidden
 end
@@ -87,14 +125,6 @@ end
 local hidden_resources = {}
 local anchor_base
 local anchor_item
-
-data:extend({
-    {
-        type   = "resource-category",
-        name   = C.HIDDEN_RESOURCE_CATEGORY,
-        hidden = true,
-    },
-})
 
 for resource_name, resource in pairs(data.raw.resource or {}) do
     if not is_managed_resource_name(resource_name) then
@@ -119,6 +149,7 @@ if anchor_base then
     anchor_base.hidden_in_factoriopedia = true
     anchor_base.factoriopedia_alternative = nil
     anchor_base.flags = { "placeable-neutral", "not-on-map" }
+    anchor_base.category = "basic-solid"
     anchor_base.selectable_in_game = false
     anchor_base.highlight = false
     anchor_base.minable = {
@@ -130,4 +161,9 @@ end
 
 if #hidden_resources > 0 then
     data:extend(hidden_resources)
+end
+
+local drill = data.raw["mining-drill"] and data.raw["mining-drill"][C.BIG_MINING_DRILL]
+if drill then
+    data:extend({ make_placement_proxy(drill) })
 end
