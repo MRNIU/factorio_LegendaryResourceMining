@@ -1,5 +1,5 @@
 -- Copyright The MRNIU/factorio_LegendaryResourceMining Contributors
--- control 阶段：只处理传奇原版大矿机，把玩家选择的原版资源映射到隐藏资源。
+-- control 阶段：用临时隐藏资源锚点辅助放置，并把传奇大矿机筛选器映射到隐藏资源。
 
 local C = require("constants")
 
@@ -7,7 +7,6 @@ local function ensure_storage()
     storage.drills = storage.drills or {}
     storage.destroyed_to_unit = storage.destroyed_to_unit or {}
     storage.pending_anchors = storage.pending_anchors or {}
-    storage.pending_proxy_builds = storage.pending_proxy_builds or {}
 end
 
 local function quality_name(object)
@@ -28,13 +27,6 @@ local function cursor_is_big_mining_drill(player)
     if not (player and player.valid) then return false end
     local stack = player.cursor_stack
     return stack and stack.valid_for_read and stack.name == C.BIG_MINING_DRILL
-end
-
-local function cursor_big_mining_drill_quality(player)
-    if not (player and player.valid) then return nil end
-    local stack = player.cursor_stack
-    if not (stack and stack.valid_for_read and stack.name == C.BIG_MINING_DRILL) then return nil end
-    return quality_name(stack)
 end
 
 local function starts_with(value, prefix)
@@ -205,13 +197,16 @@ end
 local function create_anchor_resource(surface, position)
     if not prototypes.entity[C.PLACEMENT_ANCHOR] then return nil end
 
-    local anchor = surface.create_entity({
-        name = C.PLACEMENT_ANCHOR,
-        position = position,
-        amount = 1,
-        raise_built = false,
-        create_build_effect_smoke = false,
-    })
+    local ok, anchor = pcall(function()
+        return surface.create_entity({
+            name = C.PLACEMENT_ANCHOR,
+            position = position,
+            amount = 1,
+            raise_built = false,
+            create_build_effect_smoke = false,
+        })
+    end)
+    if not ok then return nil end
 
     if anchor then
         anchor.destructible = false
@@ -344,29 +339,6 @@ local function sync_drill(drill, player_index)
     record.resource = create_hidden_resource(drill, hidden_name, amount)
 end
 
-local function remember_proxy_build(event)
-    local player = game.get_player(event.player_index)
-    if not cursor_is_big_mining_drill(player) then return end
-
-    ensure_storage()
-    storage.pending_proxy_builds[event.player_index] = {
-        tick = game.tick,
-        direction = event.direction,
-        quality = cursor_big_mining_drill_quality(player),
-    }
-end
-
-local function take_pending_proxy_build(event)
-    local player_index = event.player_index
-    local pending = player_index and storage.pending_proxy_builds[player_index]
-    if pending and pending.tick == game.tick then
-        storage.pending_proxy_builds[player_index] = nil
-        return pending
-    end
-
-    return nil
-end
-
 local function supported_visible_resource_in_range(surface, position)
     local drill_prototype = prototypes.entity[C.BIG_MINING_DRILL]
     local categories = drill_prototype and drill_prototype.resource_categories
@@ -405,58 +377,6 @@ local function insert_or_spill_drill(player, surface, position, quality)
             enable_looted = true,
             allow_belts = false,
         })
-    end
-end
-
-local function create_actual_drill(surface, position, direction, force, quality, player_index)
-    return surface.create_entity({
-        name = C.BIG_MINING_DRILL,
-        position = position,
-        direction = direction,
-        force = force,
-        quality = quality,
-        player = player_index,
-        raise_built = false,
-        create_build_effect_smoke = false,
-    })
-end
-
-local function replace_proxy(proxy, event)
-    ensure_storage()
-
-    local surface = proxy.surface
-    local position = proxy.position
-    local pending = take_pending_proxy_build(event)
-    local direction = (pending and pending.direction) or proxy.direction or defines.direction.north
-    local force = proxy.force
-    local quality = consumed_big_mining_drill_quality(event) or (pending and pending.quality) or quality_name(proxy)
-    local legendary = quality == C.LEGENDARY_QUALITY
-    local player = event.player_index and game.get_player(event.player_index)
-
-    proxy.destroy({ raise_destroy = false })
-
-    if not legendary and not supported_visible_resource_in_range(surface, position) then
-        insert_or_spill_drill(player, surface, position, quality)
-        if player then
-            player.create_local_flying_text({
-                text = { "message.LegendaryResourceMining-non-legendary-needs-resource" },
-                position = position,
-            })
-        end
-        return
-    end
-
-    local anchor = legendary and create_anchor_resource(surface, position) or nil
-    local drill = create_actual_drill(surface, position, direction, force, quality, event.player_index)
-    destroy_resource(anchor)
-
-    if not drill then
-        insert_or_spill_drill(player, surface, position, quality)
-        return
-    end
-
-    if legendary then
-        sync_drill(drill, event.player_index)
     end
 end
 
@@ -509,17 +429,46 @@ local function queue_anchor_cleanup(anchor)
     script.on_event(defines.events.on_tick, OnTick)
 end
 
+local function prepare_big_mining_drill_build(event)
+    local player = game.get_player(event.player_index)
+    if not cursor_is_big_mining_drill(player) then return end
+
+    local anchor = create_anchor_resource(player.surface, event.position)
+    if anchor then
+        queue_anchor_cleanup(anchor)
+    end
+end
+
+local function reject_non_legendary_empty_build(entity, event)
+    if supported_visible_resource_in_range(entity.surface, entity.position) then return end
+
+    local player = event.player_index and game.get_player(event.player_index)
+    local surface = entity.surface
+    local position = entity.position
+    local quality = consumed_big_mining_drill_quality(event) or quality_name(entity)
+
+    entity.destroy({ raise_destroy = false })
+    insert_or_spill_drill(player, surface, position, quality)
+
+    if player then
+        player.create_local_flying_text({
+            text = { "message.LegendaryResourceMining-non-legendary-needs-resource" },
+            position = position,
+        })
+    end
+end
+
 local function built_entity(event)
     local entity = event.created_entity or event.entity or event.destination
-    if entity and entity.valid and entity.name == C.PLACEMENT_PROXY then
-        replace_proxy(entity, event)
-        return
-    end
-
-    if not is_legendary_big_mining_drill(entity) then return end
+    if not (entity and entity.valid and entity.name == C.BIG_MINING_DRILL) then return end
 
     clear_anchors_near(entity.surface, entity.position)
-    sync_drill(entity, event.player_index)
+
+    if is_legendary_big_mining_drill(entity) then
+        sync_drill(entity, event.player_index)
+    else
+        reject_non_legendary_empty_build(entity, event)
+    end
 end
 
 local function entity_from_event(event)
@@ -530,11 +479,11 @@ script.on_init(function()
     storage.drills = {}
     storage.destroyed_to_unit = {}
     storage.pending_anchors = {}
-    storage.pending_proxy_builds = {}
 end)
 
 script.on_configuration_changed(function()
     ensure_storage()
+    storage.pending_proxy_builds = nil
     sync_all_drills()
     scan_existing_drills()
 end)
@@ -545,7 +494,7 @@ script.on_load(function()
     end
 end)
 
-script.on_event(defines.events.on_pre_build, remember_proxy_build)
+script.on_event(defines.events.on_pre_build, prepare_big_mining_drill_build)
 script.on_event(defines.events.on_built_entity, built_entity)
 script.on_event(defines.events.on_robot_built_entity, built_entity)
 script.on_event(defines.events.script_raised_built, built_entity)

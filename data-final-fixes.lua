@@ -1,5 +1,5 @@
 -- Copyright The MRNIU/factorio_LegendaryResourceMining Contributors
--- data-final-fixes 阶段：最后接管原版大矿机物品放置结果，避免被原版或其他 mod 的更新阶段覆盖。
+-- data-final-fixes 阶段：最后给原版大矿机追加隐藏资源分类和资源筛选槽。
 
 local C = require("constants")
 
@@ -19,9 +19,4 @@ if drill then
     if not has_hidden_category then
         drill.resource_categories[#drill.resource_categories + 1] = C.HIDDEN_RESOURCE_CATEGORY
     end
-end
-
-local item = data.raw.item and data.raw.item[C.BIG_MINING_DRILL]
-if item then
-    item.place_result = C.PLACEMENT_PROXY
 end

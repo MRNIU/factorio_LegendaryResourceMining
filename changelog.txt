@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.4
+Date: 2026-05-31
+  Changes:
+    - Replaced the placement proxy approach with a temporary hidden resource anchor, following the vanilla mining-drill/resource-category pattern used by Deep Core Mining.
+    - Restored the vanilla big mining drill item place result, so placement previews and built entities stay fully vanilla.
+    - Kept non-legendary big mining drills restricted to visible resources by refunding empty-ground placements after the native build completes.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.1.3
 Date: 2026-05-31
   Changes:

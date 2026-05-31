@@ -1,82 +1,11 @@
 -- Copyright The MRNIU/factorio_LegendaryResourceMining Contributors
--- data 阶段：给原版大矿机增加隐藏资源分类，并为所有可产出物品的资源生成隐藏副本。
+-- data 阶段：创建隐藏资源分类，并为所有可产出物品的资源生成隐藏副本。
 
 local C = require("constants")
-local util = require("util")
 
 local function is_managed_resource_name(name)
     return name == C.PLACEMENT_ANCHOR
         or string.sub(name, 1, #C.HIDDEN_RESOURCE_PREFIX) == C.HIDDEN_RESOURCE_PREFIX
-end
-
-local function big_mining_drill_sprite(file_name, params)
-    params = params or {}
-
-    local direction_path = ""
-    if string.sub(file_name, 1, 2) == "N-" then direction_path = "North/" end
-    if string.sub(file_name, 1, 2) == "E-" then direction_path = "East/" end
-    if string.sub(file_name, 1, 2) == "S-" then direction_path = "South/" end
-    if string.sub(file_name, 1, 2) == "W-" then direction_path = "West/" end
-
-    params.scale = params.scale or 0.5
-    params.priority = params.priority or "high"
-
-    return util.sprite_load(
-        "__space-age__/graphics/entity/big-mining-drill/"
-            .. direction_path
-            .. "big-mining-drill-"
-            .. file_name,
-        params
-    )
-end
-
-local function big_mining_drill_picture()
-    return {
-        north = {
-            layers = {
-                big_mining_drill_sprite("N-still", { dice = 2 }),
-                big_mining_drill_sprite("N-still-shadow", { draw_as_shadow = true, dice = 2 }),
-            },
-        },
-        east = {
-            layers = {
-                big_mining_drill_sprite("E-still", { dice_y = 2 }),
-                big_mining_drill_sprite("E-still-shadow", { draw_as_shadow = true, dice = 2 }),
-            },
-        },
-        south = {
-            layers = {
-                big_mining_drill_sprite("S-still", { dice_x = 2 }),
-                big_mining_drill_sprite("S-still-shadow", { draw_as_shadow = true, dice = 2 }),
-            },
-        },
-        west = {
-            layers = {
-                big_mining_drill_sprite("W-still", { dice_y = 2 }),
-                big_mining_drill_sprite("W-still-shadow", { draw_as_shadow = true, dice = 2 }),
-            },
-        },
-    }
-end
-
-local function make_placement_proxy(drill)
-    return {
-        type = "simple-entity-with-owner",
-        name = C.PLACEMENT_PROXY,
-        icon = drill.icon,
-        icons = drill.icons,
-        flags = { "placeable-neutral", "player-creation" },
-        hidden_in_factoriopedia = true,
-        localised_name = drill.localised_name or { "entity-name." .. C.BIG_MINING_DRILL },
-        localised_description = { "entity-description.LegendaryResourceMining-placement-proxy" },
-        placeable_by = { item = C.BIG_MINING_DRILL, count = 1 },
-        minable = { mining_time = 0.1, result = C.BIG_MINING_DRILL },
-        max_health = 1,
-        collision_box = table.deepcopy(drill.collision_box),
-        selection_box = table.deepcopy(drill.selection_box),
-        drawing_box_vertical_extension = drill.drawing_box_vertical_extension,
-        picture = big_mining_drill_picture(),
-    }
 end
 
 local function product_type(product)
@@ -195,9 +124,4 @@ end
 
 if #hidden_resources > 0 then
     data:extend(hidden_resources)
-end
-
-local drill = data.raw["mining-drill"] and data.raw["mining-drill"][C.BIG_MINING_DRILL]
-if drill then
-    data:extend({ make_placement_proxy(drill) })
 end

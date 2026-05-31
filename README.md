@@ -10,4 +10,4 @@ The vanilla mining drill filter UI is global, so resources outside the current p
 
 The resource amount starts from 1,000,000 and is scaled by the surface map generation size and richness settings for the selected resource. Changing the filter or rebuilding the drill starts from a fresh amount.
 
-If the mod is removed, placed drills remain vanilla `big-mining-drill` entities. The temporary placement proxy, hidden resources, and runtime behavior are removed with the mod.
+If the mod is removed, placed drills remain vanilla `big-mining-drill` entities. The temporary hidden resources and runtime behavior are removed with the mod.

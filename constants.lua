@@ -15,7 +15,6 @@ M.LEGENDARY_QUALITY = "legendary"
 M.HIDDEN_RESOURCE_CATEGORY = "legendary-resource-mining-hidden"
 M.HIDDEN_RESOURCE_PREFIX   = "legendary-resource-mining-hidden-"
 M.PLACEMENT_ANCHOR         = "legendary-resource-mining-placement-anchor"
-M.PLACEMENT_PROXY          = "legendary-resource-mining-placement-proxy"
 
 M.BASE_AMOUNT = 1000000
 M.MAX_RESOURCE_AMOUNT = 4294967295
