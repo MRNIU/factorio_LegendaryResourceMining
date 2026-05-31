@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.5
+Date: 2026-05-31
+  Changes:
+    - Maintained a bounded field of temporary hidden resource anchors around players while they hold a legendary big mining drill, so vanilla empty-ground placement can pass before the build event fires.
+    - Cleared temporary anchors when the cursor changes, after placement, and when the mod configuration changes.
+    - Added player-visible diagnostics when hidden filter application or hidden resource creation fails.
+    - Increased legendary drill sync frequency after filter changes.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.1.4
 Date: 2026-05-31
   Changes:
