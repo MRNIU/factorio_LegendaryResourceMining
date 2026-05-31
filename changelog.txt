@@ -1,0 +1,6 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2026-05-31
+  Changes:
+    - Initial release: legendary big mining drills can use native resource filters to mine finite hidden resources without visible ore patches.
+    - Added startup setting to restrict choices to the current planet's enabled resources or allow every supported item resource.

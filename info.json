@@ -1,0 +1,15 @@
+{
+    "name": "LegendaryResourceMining",
+    "version": "0.1.0",
+    "title": "Legendary Resource Mining",
+    "author": "zhihong",
+    "contact": "zhihong@nzhnb.com",
+    "homepage": "https://github.com/MRNIU/factorio_LegendaryResourceMining",
+    "description": "Lets legendary big mining drills mine a manually selected finite resource without a visible ore patch.",
+    "factorio_version": "2.0",
+    "dependencies": [
+        "base >= 2.0.76",
+        "space-age",
+        "quality"
+    ]
+}
