@@ -8,6 +8,31 @@ local function is_managed_resource_name(name)
         or string.sub(name, 1, #C.HIDDEN_RESOURCE_PREFIX) == C.HIDDEN_RESOURCE_PREFIX
 end
 
+local function make_placement_proxy(drill)
+    return {
+        type = "simple-entity-with-owner",
+        name = C.PLACEMENT_PROXY,
+        icon = drill.icon,
+        icons = drill.icons,
+        flags = { "placeable-neutral", "player-creation", "not-on-map" },
+        hidden = true,
+        hidden_in_factoriopedia = true,
+        localised_name = drill.localised_name or { "entity-name." .. C.BIG_MINING_DRILL },
+        localised_description = { "entity-description.LegendaryResourceMining-placement-proxy" },
+        minable = { mining_time = 0.1, result = C.BIG_MINING_DRILL },
+        max_health = 1,
+        collision_box = table.deepcopy(drill.collision_box),
+        selection_box = table.deepcopy(drill.selection_box),
+        picture = {
+            filename = drill.icon or "__space-age__/graphics/icons/big-mining-drill.png",
+            priority = "extra-high",
+            width = 64,
+            height = 64,
+            scale = 1,
+        },
+    }
+end
+
 local function product_type(product)
     if product.type then return product.type end
     if product[2] ~= nil then return "item" end
@@ -128,6 +153,13 @@ end
 
 local drill = data.raw["mining-drill"] and data.raw["mining-drill"][C.BIG_MINING_DRILL]
 if drill then
+    data:extend({ make_placement_proxy(drill) })
+
+    local item = data.raw.item and data.raw.item[C.BIG_MINING_DRILL]
+    if item then
+        item.place_result = C.PLACEMENT_PROXY
+    end
+
     drill.filter_count = math.max(drill.filter_count or 0, 1)
     drill.resource_categories = drill.resource_categories or { "basic-solid" }
 

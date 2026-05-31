@@ -7,6 +7,7 @@ local function ensure_storage()
     storage.drills = storage.drills or {}
     storage.destroyed_to_unit = storage.destroyed_to_unit or {}
     storage.pending_anchors = storage.pending_anchors or {}
+    storage.pending_proxy_builds = storage.pending_proxy_builds or {}
 end
 
 local function quality_name(object)
@@ -30,6 +31,12 @@ local function cursor_is_legendary_big_mining_drill(player)
         and stack.valid_for_read
         and stack.name == C.BIG_MINING_DRILL
         and quality_name(stack) == C.LEGENDARY_QUALITY
+end
+
+local function cursor_is_big_mining_drill(player)
+    if not (player and player.valid) then return false end
+    local stack = player.cursor_stack
+    return stack and stack.valid_for_read and stack.name == C.BIG_MINING_DRILL
 end
 
 local function starts_with(value, prefix)
@@ -62,6 +69,14 @@ local function set_filter_name(entity, resource_name)
     if entity.filter_slot_count == 0 then return false end
     local ok = pcall(function()
         entity.set_filter(1, resource_name)
+    end)
+    return ok
+end
+
+local function clear_filter_name(entity)
+    if entity.filter_slot_count == 0 then return false end
+    local ok = pcall(function()
+        entity.set_filter(1, nil)
     end)
     return ok
 end
@@ -105,6 +120,12 @@ local function control_entry(map_gen_settings, control_name)
     return controls and controls[control_name]
 end
 
+local function entity_autoplace_settings(map_gen_settings)
+    local autoplace_settings = map_gen_settings and map_gen_settings.autoplace_settings
+    local entity_settings = autoplace_settings and autoplace_settings.entity
+    return entity_settings and entity_settings.settings
+end
+
 local function control_is_enabled(entry)
     if not entry then return true end
     return map_gen_factor(entry.frequency) > 0
@@ -112,19 +133,26 @@ local function control_is_enabled(entry)
         and map_gen_factor(entry.richness) > 0
 end
 
-local function planet_allows_resource(surface, control_name)
+local function surface_planet_prototype(surface)
     local planet = surface and surface.planet
-    local prototype = planet and planet.prototype
-    local entry = control_entry(prototype and prototype.map_gen_settings, control_name)
+    if planet and planet.prototype then
+        return planet.prototype
+    end
+    return surface and prototypes.space_location[surface.name] or nil
+end
 
-    return entry ~= nil and control_is_enabled(entry)
+local function planet_allows_resource(surface, resource_name)
+    local prototype = surface_planet_prototype(surface)
+    local settings = entity_autoplace_settings(prototype and prototype.map_gen_settings)
+
+    return settings and settings[resource_name] ~= nil
 end
 
 local function amount_for_resource(surface, resource_name)
     local control_name = autoplace_control_name(resource_name)
 
     if setting_resource_scope() ~= C.RESOURCE_SCOPE_ALL
-        and not planet_allows_resource(surface, control_name)
+        and not planet_allows_resource(surface, resource_name)
     then
         return nil
     end
@@ -144,6 +172,24 @@ local function destroy_resource(entity)
     if entity and entity.valid then
         entity.destroy({ raise_destroy = false })
     end
+end
+
+local function create_anchor_resource(surface, position)
+    if not prototypes.entity[C.PLACEMENT_ANCHOR] then return nil end
+
+    local anchor = surface.create_entity({
+        name = C.PLACEMENT_ANCHOR,
+        position = position,
+        amount = 1,
+        raise_built = false,
+        create_build_effect_smoke = false,
+    })
+
+    if anchor then
+        anchor.destructible = false
+    end
+
+    return anchor
 end
 
 local function create_hidden_resource(drill, hidden_name, amount)
@@ -176,6 +222,18 @@ local function clear_anchors_near(surface, position)
     end
 end
 
+local cleanup_record
+
+local function reject_filter(drill, record, original_name, player_index)
+    cleanup_record(record)
+    clear_filter_name(drill)
+
+    local player = player_index and game.get_player(player_index)
+    if player then
+        player.print({ "message.LegendaryResourceMining-resource-not-allowed", { "entity-name." .. original_name } })
+    end
+end
+
 local function record_for_drill(drill)
     ensure_storage()
 
@@ -195,7 +253,7 @@ local function record_for_drill(drill)
     return record
 end
 
-local function cleanup_record(record)
+cleanup_record = function(record)
     if not record then return end
     destroy_resource(record.resource)
     record.resource = nil
@@ -216,7 +274,7 @@ local function remove_drill_record(unit_number)
     storage.drills[unit_number] = nil
 end
 
-local function sync_drill(drill)
+local function sync_drill(drill, player_index)
     if not is_legendary_big_mining_drill(drill) then return end
 
     local record = record_for_drill(drill)
@@ -235,7 +293,7 @@ local function sync_drill(drill)
 
     local amount = amount_for_resource(drill.surface, original_name)
     if not amount then
-        cleanup_record(record)
+        reject_filter(drill, record, original_name, player_index)
         return
     end
 
@@ -256,6 +314,126 @@ local function sync_drill(drill)
     if record.depleted then return end
 
     record.resource = create_hidden_resource(drill, hidden_name, amount)
+end
+
+local function positions_match(a, b)
+    if not (a and b) then return false end
+    return math.abs(a.x - b.x) < 0.01 and math.abs(a.y - b.y) < 0.01
+end
+
+local function remember_proxy_build(event)
+    local player = game.get_player(event.player_index)
+    if not cursor_is_big_mining_drill(player) then return end
+
+    ensure_storage()
+    storage.pending_proxy_builds[event.player_index] = {
+        tick = game.tick,
+        position = event.position,
+        direction = event.direction,
+    }
+end
+
+local function pending_direction(event, proxy)
+    local player_index = event.player_index
+    local pending = player_index and storage.pending_proxy_builds[player_index]
+    if pending and pending.tick == game.tick and positions_match(pending.position, proxy.position) then
+        storage.pending_proxy_builds[player_index] = nil
+        return pending.direction
+    end
+
+    return proxy.direction or defines.direction.north
+end
+
+local function supported_visible_resource_in_range(surface, position)
+    local drill_prototype = prototypes.entity[C.BIG_MINING_DRILL]
+    local categories = drill_prototype and drill_prototype.resource_categories
+    if not categories then return false end
+
+    local radius = drill_prototype.mining_drill_radius or 6.49
+    local area = {
+        { position.x - radius, position.y - radius },
+        { position.x + radius, position.y + radius },
+    }
+
+    for _, resource in pairs(surface.find_entities_filtered({ type = "resource", area = area })) do
+        if resource.valid
+            and resource.name ~= C.PLACEMENT_ANCHOR
+            and not starts_with(resource.name, C.HIDDEN_RESOURCE_PREFIX)
+        then
+            local category = resource.prototype.resource_category or "basic-solid"
+            if categories[category] then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function insert_or_spill_drill(player, surface, position, quality)
+    local stack = { name = C.BIG_MINING_DRILL, count = 1 }
+    if quality then stack.quality = quality end
+
+    local inserted = player and player.valid and player.insert(stack) or 0
+    if inserted < 1 then
+        surface.spill_item_stack({
+            position = position,
+            stack = stack,
+            enable_looted = true,
+            allow_belts = false,
+        })
+    end
+end
+
+local function create_actual_drill(surface, position, direction, force, quality, player_index)
+    return surface.create_entity({
+        name = C.BIG_MINING_DRILL,
+        position = position,
+        direction = direction,
+        force = force,
+        quality = quality,
+        player = player_index,
+        raise_built = false,
+        create_build_effect_smoke = false,
+    })
+end
+
+local function replace_proxy(proxy, event)
+    ensure_storage()
+
+    local surface = proxy.surface
+    local position = proxy.position
+    local direction = pending_direction(event, proxy)
+    local force = proxy.force
+    local quality = quality_name(proxy)
+    local legendary = quality == C.LEGENDARY_QUALITY
+    local player = event.player_index and game.get_player(event.player_index)
+
+    proxy.destroy({ raise_destroy = false })
+
+    if not legendary and not supported_visible_resource_in_range(surface, position) then
+        insert_or_spill_drill(player, surface, position, quality)
+        if player then
+            player.create_local_flying_text({
+                text = { "message.LegendaryResourceMining-non-legendary-needs-resource" },
+                position = position,
+            })
+        end
+        return
+    end
+
+    local anchor = legendary and create_anchor_resource(surface, position) or nil
+    local drill = create_actual_drill(surface, position, direction, force, quality, event.player_index)
+    destroy_resource(anchor)
+
+    if not drill then
+        insert_or_spill_drill(player, surface, position, quality)
+        return
+    end
+
+    if legendary then
+        sync_drill(drill, event.player_index)
+    end
 end
 
 local function sync_all_drills()
@@ -307,31 +485,17 @@ local function queue_anchor_cleanup(anchor)
     script.on_event(defines.events.on_tick, OnTick)
 end
 
-local function create_placement_anchor(event)
-    local player = game.get_player(event.player_index)
-    if not cursor_is_legendary_big_mining_drill(player) then return end
-    if not prototypes.entity[C.PLACEMENT_ANCHOR] then return end
-
-    local anchor = player.surface.create_entity({
-        name = C.PLACEMENT_ANCHOR,
-        position = event.position,
-        amount = 1,
-        raise_built = false,
-        create_build_effect_smoke = false,
-    })
-
-    if anchor then
-        anchor.destructible = false
-        queue_anchor_cleanup(anchor)
-    end
-end
-
 local function built_entity(event)
     local entity = event.created_entity or event.entity or event.destination
+    if entity and entity.valid and entity.name == C.PLACEMENT_PROXY then
+        replace_proxy(entity, event)
+        return
+    end
+
     if not is_legendary_big_mining_drill(entity) then return end
 
     clear_anchors_near(entity.surface, entity.position)
-    sync_drill(entity)
+    sync_drill(entity, event.player_index)
 end
 
 local function entity_from_event(event)
@@ -342,6 +506,7 @@ script.on_init(function()
     storage.drills = {}
     storage.destroyed_to_unit = {}
     storage.pending_anchors = {}
+    storage.pending_proxy_builds = {}
 end)
 
 script.on_configuration_changed(function()
@@ -356,7 +521,7 @@ script.on_load(function()
     end
 end)
 
-script.on_event(defines.events.on_pre_build, create_placement_anchor)
+script.on_event(defines.events.on_pre_build, remember_proxy_build)
 script.on_event(defines.events.on_built_entity, built_entity)
 script.on_event(defines.events.on_robot_built_entity, built_entity)
 script.on_event(defines.events.script_raised_built, built_entity)
@@ -365,14 +530,14 @@ script.on_event(defines.events.script_raised_revive, built_entity)
 script.on_event(defines.events.on_gui_closed, function(event)
     local entity = event.entity
     if is_legendary_big_mining_drill(entity) then
-        sync_drill(entity)
+        sync_drill(entity, event.player_index)
     end
 end)
 
 script.on_event(defines.events.on_entity_settings_pasted, function(event)
     local entity = entity_from_event(event)
     if is_legendary_big_mining_drill(entity) then
-        sync_drill(entity)
+        sync_drill(entity, event.player_index)
     end
 end)
 
