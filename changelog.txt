@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.2
+Date: 2026-05-31
+  Changes:
+    - Preserved the cursor stack quality while replacing the placement proxy, so legendary drills are correctly recognized during empty-ground placement.
+    - Changed the placement proxy preview to use the vanilla big mining drill still sprites instead of a small item icon.
+    - Kept the placement proxy visible to the build system while hiding it from Factoriopedia.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.1.1
 Date: 2026-05-31
   Changes:

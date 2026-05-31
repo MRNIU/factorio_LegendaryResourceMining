@@ -39,6 +39,13 @@ local function cursor_is_big_mining_drill(player)
     return stack and stack.valid_for_read and stack.name == C.BIG_MINING_DRILL
 end
 
+local function cursor_big_mining_drill_quality(player)
+    if not (player and player.valid) then return nil end
+    local stack = player.cursor_stack
+    if not (stack and stack.valid_for_read and stack.name == C.BIG_MINING_DRILL) then return nil end
+    return quality_name(stack)
+end
+
 local function starts_with(value, prefix)
     return string.sub(value, 1, #prefix) == prefix
 end
@@ -316,11 +323,6 @@ local function sync_drill(drill, player_index)
     record.resource = create_hidden_resource(drill, hidden_name, amount)
 end
 
-local function positions_match(a, b)
-    if not (a and b) then return false end
-    return math.abs(a.x - b.x) < 0.01 and math.abs(a.y - b.y) < 0.01
-end
-
 local function remember_proxy_build(event)
     local player = game.get_player(event.player_index)
     if not cursor_is_big_mining_drill(player) then return end
@@ -328,20 +330,20 @@ local function remember_proxy_build(event)
     ensure_storage()
     storage.pending_proxy_builds[event.player_index] = {
         tick = game.tick,
-        position = event.position,
         direction = event.direction,
+        quality = cursor_big_mining_drill_quality(player),
     }
 end
 
-local function pending_direction(event, proxy)
+local function take_pending_proxy_build(event)
     local player_index = event.player_index
     local pending = player_index and storage.pending_proxy_builds[player_index]
-    if pending and pending.tick == game.tick and positions_match(pending.position, proxy.position) then
+    if pending and pending.tick == game.tick then
         storage.pending_proxy_builds[player_index] = nil
-        return pending.direction
+        return pending
     end
 
-    return proxy.direction or defines.direction.north
+    return nil
 end
 
 local function supported_visible_resource_in_range(surface, position)
@@ -403,9 +405,10 @@ local function replace_proxy(proxy, event)
 
     local surface = proxy.surface
     local position = proxy.position
-    local direction = pending_direction(event, proxy)
+    local pending = take_pending_proxy_build(event)
+    local direction = (pending and pending.direction) or proxy.direction or defines.direction.north
     local force = proxy.force
-    local quality = quality_name(proxy)
+    local quality = (pending and pending.quality) or quality_name(proxy)
     local legendary = quality == C.LEGENDARY_QUALITY
     local player = event.player_index and game.get_player(event.player_index)
 
